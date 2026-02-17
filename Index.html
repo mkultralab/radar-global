@@ -3,12 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Global Ops Tactical V5.6</title>
+    <title>Global Ops Tactical V6.5 - Stencil Intel</title>
     
-    <!-- Bibliotecas Essenciais -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/lucide@latest"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
@@ -19,91 +17,112 @@
             overflow: hidden; font-family: 'JetBrains Mono', monospace; 
         }
         
-        #map { position: absolute; top: 60px; bottom: 0; left: 0; right: 0; z-index: 1; }
-        
-        /* Filtro Noturno para o Mapa */
+        /* Layout fixo para Android */
+        #map { position: absolute; top: 50px; height: 50%; width: 100%; z-index: 1; }
         .leaflet-layer { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
         .leaflet-control-container { display: none; }
 
-        /* Painel de Intel Adaptável para Motorola */
-        #news-overlay {
-            position: absolute; bottom: 0; left: 0; width: 100%;
-            background: rgba(5, 5, 10, 0.98); 
-            border-top: 3px solid #dc2626;
-            transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 2000; 
-            padding: 20px 20px 40px 20px; 
-            max-height: 50vh; 
-            overflow-y: auto;
-            box-sizing: border-box;
+        /* Painel de Texto com Rolagem Independente */
+        #news-panel {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 50%;
+            background: #080a0f; border-top: 4px solid #dc2626;
+            z-index: 2000; display: flex; flex-direction: column;
+            box-shadow: 0 -15px 40px rgba(0,0,0,1);
         }
-        #news-overlay.active { transform: translateY(0); }
 
+        #news-header {
+            padding: 12px 20px; background: #000; border-bottom: 1px solid #1f2937;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        #news-body {
+            flex: 1; overflow-y: auto; padding: 20px;
+            font-size: 14px; line-height: 1.7; color: #d1d5db;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Botões Táticos Estilo Stencil */
         .btn-tatico {
-            width: 58px; height: 58px; display: flex; align-items: center; justify-content: center;
-            border-radius: 14px; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(220, 38, 38, 0.4);
-            color: #ef4444; box-shadow: 0 10px 20px rgba(0,0,0,0.6);
-            -webkit-tap-highlight-color: transparent;
+            width: 70px; height: 70px; border-radius: 12px;
+            background: rgba(15, 23, 42, 0.95); border: 3px solid #dc2626;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.8);
+            cursor: pointer; -webkit-tap-highlight-color: transparent;
+            color: #ef4444;
         }
         .btn-tatico:active { transform: scale(0.9); background: #dc2626; color: white; }
+        .btn-tatico svg { width: 35px; height: 35px; }
+
+        .skull-marker { filter: drop-shadow(0 0 8px #ff0000); }
+        
+        /* Barra de rolagem customizada */
+        #news-body::-webkit-scrollbar { width: 6px; }
+        #news-body::-webkit-scrollbar-track { background: #000; }
+        #news-body::-webkit-scrollbar-thumb { background: #dc2626; border-radius: 10px; }
     </style>
 </head>
 <body class="flex flex-col h-screen">
 
-    <!-- Header Fixo -->
-    <header class="h-[60px] bg-black border-b border-gray-800 flex items-center justify-between px-4 z-20">
-        <div class="flex items-center gap-2">
-            <i data-lucide="crosshair" class="text-red-600 w-5 h-5"></i>
-            <div>
-                <h1 class="font-black text-xs text-white uppercase italic tracking-tighter">Tactical <span class="text-red-600">Ops</span></h1>
-                <p class="text-[7px] text-gray-500 font-bold uppercase tracking-[0.2em]">V5.6-STABLE</p>
-            </div>
+    <!-- Header Superior -->
+    <header class="h-[50px] bg-black border-b border-gray-800 flex items-center justify-between px-4 z-20">
+        <div class="flex items-center gap-3">
+            <svg viewBox="0 0 24 24" class="w-6 h-6 text-red-600 fill-current"><path d="M12 2C9.5 2 7 4 7 7c0 3 2.5 5 2.5 5v3h5v-3s2.5-2 2.5-5c0-3-2.5-5-5-5zm-2 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm4 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1z"/></svg>
+            <h1 class="font-black text-[12px] text-white tracking-widest uppercase italic">Ops <span class="text-red-600">Tactical</span> 6.5</h1>
         </div>
-        <div class="text-right">
-            <div id="utc-clock" class="text-[10px] text-white font-bold font-mono">00:00:00 UTC</div>
-            <div class="text-[6px] text-green-500 font-bold animate-pulse">TERMINAL SEGURO</div>
-        </div>
+        <div id="utc-clock" class="text-[10px] text-gray-500 font-mono">00:00:00 UTC</div>
     </header>
 
-    <div class="relative flex-1">
+    <div class="relative flex-1 flex flex-col">
+        <!-- Mapa (Metade Superior) -->
         <div id="map"></div>
 
-        <!-- Notificações Laterais -->
-        <div id="cmd-terminal" class="absolute top-4 left-4 bg-black/90 p-2 border-l-2 border-red-600 z-[1000] w-40 opacity-0 transition-opacity pointer-events-none">
-            <h2 id="term-title" class="text-[8px] font-bold text-red-600 uppercase">STATUS</h2>
-            <div id="term-content" class="text-[8px] text-gray-400 font-mono">A iniciar varrimento...</div>
-        </div>
-
-        <!-- Menu de Inteligência -->
-        <div id="news-overlay">
-            <div class="flex justify-between items-center mb-4">
-                <div class="flex items-center gap-2">
-                    <div class="w-2 h-2 bg-red-600 rounded-full animate-ping"></div>
-                    <h3 id="news-country" class="text-white font-bold uppercase text-[11px] tracking-widest italic">Análise de Campo</h3>
-                </div>
-                <button onclick="closeNews()" class="text-gray-400 text-[10px] font-bold border border-gray-700 px-3 py-1 rounded">FECHAR</button>
-            </div>
-            <div id="news-body" class="text-[13px] text-gray-300 leading-relaxed space-y-4">
-                Toque no mapa para extrair dados táticos do satélite.
-            </div>
-        </div>
-
-        <!-- Botões de Ação Rápida -->
-        <div class="absolute bottom-12 right-5 flex flex-col gap-4 z-[1000]">
+        <!-- Botões de Ação (Android Optimized) -->
+        <div class="absolute top-[60px] right-4 flex flex-col gap-5 z-[1001]">
+            <button onclick="getGPS()" class="btn-tatico" style="border-color: #3b82f6; color: #3b82f6;">
+                <!-- Ícone de Mira/Alvo -->
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="22" y1="12" x2="18" y2="12"></line><line x1="6" y1="12" x2="2" y2="12"></line><line x1="12" y1="6" x2="12" y2="2"></line><line x1="12" y1="22" x2="12" y2="18"></line></svg>
+            </button>
             <button onclick="runGlobalStrike()" class="btn-tatico">
-                <i data-lucide="plane"></i>
+                <!-- Ícone de Caveira Stencil -->
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C9.5 2 7 4 7 7c0 3 2.5 5 2.5 5v3h5v-3s2.5-2 2.5-5c0-3-2.5-5-5-5zm-2 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm4 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM10 18l-1 2h6l-1-2h-4z"/></svg>
             </button>
-            <button onclick="getGPS()" class="btn-tatico" style="color:#3b82f6; border-color:#3b82f666;">
-                <i data-lucide="target"></i>
-            </button>
+        </div>
+
+        <!-- Painel de Inteligência (Metade Inferior) -->
+        <div id="news-panel">
+            <div id="news-header">
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 bg-red-600 rounded-full animate-ping"></div>
+                    <span id="intel-title" class="text-white text-[12px] font-bold uppercase tracking-tighter">DATA EXTRACTION UNIT</span>
+                </div>
+                <div class="text-[8px] text-gray-600 font-bold italic">SECURITY LEVEL: ALPHA</div>
+            </div>
+            <div id="news-body" class="font-mono">
+                <span class="text-red-500">> SISTEMA INICIALIZADO...</span><br>
+                <span class="text-gray-500">> AGUARDANDO COORDENADAS DE ALVO NO MAPA...</span><br><br>
+                Toque no mapa para extrair o histórico cronológico militar e avanços tecnológicos da área selecionada.
+            </div>
         </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        lucide.createIcons();
         let map, tactical;
-        const apiKey = ""; // Gemini Uplink
+        const apiKey = ""; // Uplink Gemini
+
+        // Caveira Custom Stencil para o Mapa
+        const skullMarkerSVG = `
+            <svg viewBox="0 0 24 24" class="w-10 h-10 text-red-600 fill-current skull-marker">
+                <path d="M12 2C9.5 2 7 4 7 7c0 3 2.5 5 2.5 5v3h5v-3s2.5-2 2.5-5c0-3-2.5-5-5-5zm-2 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm4 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM9 18l-1 3h8l-1-3h-6z"/>
+            </svg>
+        `;
+
+        const skullIcon = L.divIcon({
+            html: skullMarkerSVG,
+            className: '',
+            iconSize: [40, 40],
+            iconAnchor: [20, 40]
+        });
 
         window.onload = () => {
             map = L.map('map', { zoomControl: false, attributionControl: false, center: [20, 0], zoom: 2 });
@@ -111,83 +130,79 @@
             tactical = L.layerGroup().addTo(map);
 
             setInterval(() => { 
-                const now = new Date();
-                document.getElementById('utc-clock').innerText = now.getUTCHours().toString().padStart(2,'0') + ":" + 
-                    now.getUTCMinutes().toString().padStart(2,'0') + ":" + 
-                    now.getUTCSeconds().toString().padStart(2,'0') + " UTC"; 
+                document.getElementById('utc-clock').innerText = new Date().toISOString().split('T')[1].split('.')[0] + " UTC"; 
             }, 1000);
 
-            map.on('click', async (e) => {
+            map.on('click', (e) => {
                 tactical.clearLayers();
                 const { lat, lng } = e.latlng;
-                L.circleMarker([lat, lng], { radius: 6, color: '#ff0000', weight: 2, fillOpacity: 0.1 }).addTo(tactical);
-                logToTerminal("GEO-LOCK", lat.toFixed(3) + " / " + lng.toFixed(3));
-                updateIntel(lat, lng);
+                L.marker([lat, lng], { icon: skullIcon }).addTo(tactical);
+                fetchMilitaryIntel(lat, lng);
             });
 
-            setTimeout(() => { map.invalidateSize(); }, 500);
+            setTimeout(() => map.invalidateSize(), 600);
         };
 
-        function logToTerminal(h, m) {
-            const t = document.getElementById('cmd-terminal');
-            document.getElementById('term-title').innerText = h;
-            document.getElementById('term-content').innerText = "> " + m;
-            t.style.opacity = "1";
-            setTimeout(() => t.style.opacity = "0", 3000);
-        }
-
-        async function updateIntel(lat, lng) {
-            document.getElementById('news-overlay').classList.add('active');
-            document.getElementById('news-body').innerHTML = "<p class='animate-pulse text-red-500'>A contactar rede de satélites...</p>";
+        async function fetchMilitaryIntel(lat, lng) {
+            const display = document.getElementById('news-body');
+            display.innerHTML = "<p class='animate-pulse text-red-500'>> ACESSANDO WIKIPEDIA E ARQUIVOS MILITARES...<br>> EXTRAINDO CRONOLOGIA TÁTICA...</p>";
 
             try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
-                const data = await res.json();
-                const country = data.address.country || "Águas Neutras";
+                const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+                const geoData = await geoRes.json();
+                const country = geoData.address.country || "Território Não Mapeado";
                 
-                document.getElementById('news-country').innerText = "PAÍS: " + country.toUpperCase();
-                
-                const prompt = `Gere um relatório militar curto e direto (3 pontos) sobre a situação de segurança ou conflitos em ${country} no ano de 2025.`;
-                const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                document.getElementById('intel-title').innerText = "DATA: " + country.toUpperCase();
+
+                // Instrução para o Gemini focar em História, Wikipedia e Cronologia
+                const userQuery = `Extraia dados históricos e tecnológicos militares de ${country}. Forneça uma cronologia curta dos conflitos mais importantes e avanços militares reais. Baseie-se em fatos da Wikipedia e arquivos históricos.`;
+
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    body: JSON.stringify({ 
+                        contents: [{ parts: [{ text: userQuery }] }],
+                        tools: [{ "google_search": {} }] // Ativa a busca por dados reais
+                    })
                 });
-                const gData = await gRes.json();
-                const text = gData.candidates?.[0]?.content?.parts?.[0]?.text || "Sem atividade hostil reportada.";
 
-                document.getElementById('news-body').innerHTML = `
-                    <div class="border-l-2 border-red-600 pl-3">
-                        ${text.replace(/\n/g, '<br>')}
-                    </div>
-                    <div class="pt-4 mt-4 border-t border-gray-900 text-[9px] text-gray-600">
-                        ESTADO DO CANAL: ENCRIPTADO | SCAN TÁTICO COMPLETO
+                const data = await res.json();
+                const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Erro na extração de dados históricos.";
+
+                display.innerHTML = `
+                    <div class="space-y-4">
+                        <div class="text-red-500 font-bold text-[11px] mb-2">> RELATÓRIO DE INTELIGÊNCIA CRONOLÓGICA</div>
+                        <div class="border-l-4 border-red-600 pl-4 text-gray-300">
+                            ${responseText.replace(/\n/g, '<br>')}
+                        </div>
+                        <div class="mt-6 pt-4 border-t border-gray-800 text-[10px] text-gray-600 italic">
+                            DADOS EXTRAÍDOS VIA UPLINK SATELITAL | COORD: ${lat.toFixed(4)}, ${lng.toFixed(4)}
+                        </div>
                     </div>
                 `;
             } catch (e) {
-                document.getElementById('news-body').innerText = "Erro no uplink de dados.";
+                display.innerHTML = "<span class='text-red-600'>> ERRO CRÍTICO NO UPLINK. RECONECTE O TERMINAL.</span>";
             }
-        }
-
-        function closeNews() { document.getElementById('news-overlay').classList.remove('active'); }
-
-        function runGlobalStrike() {
-            tactical.clearLayers();
-            const targets = [[31.5, 34.4], [48.3, 38.0], [15.5, 42.5]];
-            targets.forEach(p => {
-                L.circleMarker(p, { radius: 10, color: '#ef4444', weight: 1, fillOpacity: 0.4 }).addTo(tactical);
-            });
-            logToTerminal("AIR OPS", "Alvos estratégicos mapeados.");
-            map.flyTo([30, 40], 3);
         }
 
         function getGPS() {
             navigator.geolocation.getCurrentPosition(p => {
                 const { latitude, longitude } = p.coords;
-                map.flyTo([latitude, longitude], 15);
-                L.marker([latitude, longitude], { icon: L.divIcon({ html: '<i data-lucide="skull" class="text-blue-500 w-10 h-10"></i>', className: '' }) }).addTo(tactical);
-                lucide.createIcons();
-            }, () => logToTerminal("ERRO", "Ative o GPS do Motorola."));
+                map.flyTo([latitude, longitude], 14);
+                tactical.clearLayers();
+                L.marker([latitude, longitude], { icon: skullIcon }).addTo(tactical);
+                fetchMilitaryIntel(latitude, longitude);
+            });
+        }
+
+        function runGlobalStrike() {
+            tactical.clearLayers();
+            const strikePoints = [[34.0, 44.0], [48.0, 37.0], [15.0, 43.0]];
+            strikePoints.forEach(p => {
+                L.circleMarker(p, { radius: 15, color: '#ff0000', weight: 2, fillOpacity: 0.3 }).addTo(tactical);
+            });
+            map.flyTo([30, 40], 3);
+            document.getElementById('news-body').innerHTML = "<span class='text-red-600'>> MODO DE OPERAÇÕES GLOBAIS ATIVO.</span><br>> Selecione um alvo para histórico tático.";
         }
     </script>
 </body>
