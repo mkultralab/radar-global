@@ -3,75 +3,228 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Global Ops Tracker - Mobile</title>
-    <!-- Bibliotecas Diretas (Sem links de pesquisa do Google) -->
+    <title>Global Ops - Tactical V5.1 MK-ULTRA</title>
+    
+    <!-- Bibliotecas Core Limpas -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/lucide@latest"></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
-        body, html { margin: 0; padding: 0; height: 100%; width: 100%; background-color: #05070a; color: #e5e7eb; overflow: hidden; font-family: 'JetBrains Mono', monospace; }
-        #map { position: absolute; top: 60px; bottom: 0; left: 0; right: 0; z-index: 1; background-color: #05070a; }
+        
+        body, html { 
+            margin: 0; padding: 0; height: 100%; width: 100%; 
+            background-color: #020408; color: #e5e7eb; 
+            overflow: hidden; font-family: 'JetBrains Mono', monospace; 
+        }
+        
+        #map { position: absolute; top: 60px; bottom: 0; left: 0; right: 0; z-index: 1; }
         .leaflet-layer { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
-        .strike-marker { background: #ff0000; border: 2px solid #fff; border-radius: 50%; animation: pulse 2s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 70% { transform: scale(1.5); opacity: 0; } 100% { transform: scale(1); opacity: 0; } }
-        #radar-grid { position: absolute; top: 60px; left: 0; width: 100%; height: 100%; pointer-events: none; background-image: radial-gradient(circle, rgba(0,255,100,0.05) 1px, transparent 1px); background-size: 30px 30px; z-index: 2; }
+        
+        /* Ajustes de UI para não cortar no Motorola */
+        .leaflet-control-container { display: none; }
+
+        @keyframes pulse-red {
+            0% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+            70% { transform: scale(1.3); opacity: 0.2; box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+            100% { transform: scale(1); opacity: 0; }
+        }
+
+        .base-point { 
+            width: 6px; height: 6px; background: #fff; border-radius: 50%; 
+            box-shadow: 0 0 8px #00ff66; border: 1px solid #000;
+        }
+
+        .strike-icon { 
+            width: 10px; height: 10px; background: #ff0000; border-radius: 50%;
+            animation: pulse-red 1.5s infinite;
+        }
+
+        #news-overlay {
+            position: absolute; bottom: 0; left: 0; width: 100%;
+            background: linear-gradient(to top, #000 85%, rgba(0,0,0,0.9)); 
+            border-top: 2px solid #ef4444;
+            transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 2000; padding: 20px; max-height: 50%; overflow-y: auto;
+        }
+        #news-overlay.active { transform: translateY(0); }
+
+        .btn-tatico {
+            width: 52px; height: 52px; display: flex; align-items: center; justify-content: center;
+            border-radius: 14px; border: 1px solid rgba(255,255,255,0.1); 
+            box-shadow: 0 8px 16px rgba(0,0,0,0.6);
+        }
     </style>
 </head>
-<body class="flex flex-col h-screen">
+<body class="flex flex-col h-screen overflow-hidden">
+
+    <!-- Header Sincronizado -->
     <header class="h-[60px] bg-black border-b border-gray-800 flex items-center justify-between px-4 z-20">
         <div class="flex items-center gap-2">
-            <i data-lucide="radar" class="text-red-600 w-5 h-5 animate-pulse"></i>
-            <h1 class="font-black text-lg text-white uppercase italic">Ops <span class="text-red-600">Global</span></h1>
+            <i data-lucide="crosshair" class="text-red-600 w-5 h-5"></i>
+            <div>
+                <h1 class="font-black text-xs text-white uppercase italic tracking-tighter">Ops <span class="text-red-600">Tactical</span></h1>
+                <p class="text-[7px] text-gray-500 uppercase">Uplink: 17/02/2026 | 19:38</p>
+            </div>
         </div>
-        <div id="clock" class="text-[10px] text-gray-400">00:00:00 UTC</div>
+        <div class="text-right">
+            <div id="utc-clock" class="text-[10px] text-white font-bold tracking-widest">--:--:-- UTC</div>
+            <div class="text-[6px] text-green-500 font-bold">SINAL ENCRIPTADO</div>
+        </div>
     </header>
+
     <div class="relative flex-1">
         <div id="map"></div>
-        <div id="radar-grid"></div>
-        <div id="term" class="absolute top-4 left-4 bg-black/90 p-4 border-l-2 border-red-600 z-[1000] w-64 opacity-0 transition-all text-[10px]">
-            <h2 id="t-title" class="font-bold text-red-600 uppercase">SISTEMA</h2>
-            <div id="t-msg" class="text-gray-400 mt-1"></div>
+
+        <!-- Terminal de Logs -->
+        <div id="cmd-terminal" class="absolute top-4 left-4 bg-black/95 p-3 border-l-2 border-red-600 z-[1000] w-48 opacity-0 transition-all pointer-events-none">
+            <h2 id="term-title" class="text-[8px] font-bold text-red-600 uppercase">SISTEMA</h2>
+            <div id="term-content" class="text-[8px] text-gray-400 font-mono mt-1"></div>
         </div>
-        <div class="absolute bottom-6 right-6 flex flex-col gap-3 z-[1000]">
-            <button onclick="runB2()" class="bg-red-700 p-4 rounded-full text-white shadow-2xl active:scale-90"><i data-lucide="plane"></i></button>
-            <button onclick="getGPS()" class="bg-blue-700 p-4 rounded-full text-white shadow-2xl active:scale-90"><i data-lucide="crosshair"></i></button>
+
+        <!-- Menu de Inteligência -->
+        <div id="news-overlay">
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 bg-red-600 rounded-full animate-ping"></div>
+                    <h3 id="news-country" class="text-white font-bold uppercase text-[9px] tracking-[0.2em]">INTEL DATA</h3>
+                </div>
+                <button onclick="closeNews()" class="text-gray-500 text-[9px] border border-gray-800 px-2 py-1 rounded">FECHAR</button>
+            </div>
+            <div id="news-body" class="text-[10px] text-gray-400 leading-relaxed space-y-3 pb-8">
+                <!-- Conteúdo Dinâmico -->
+            </div>
+        </div>
+
+        <!-- Botões de Comando -->
+        <div class="absolute bottom-10 right-4 flex flex-col gap-4 z-[1000]">
+            <!-- Ícone Caça Militar -->
+            <button onclick="runGlobalStrike()" class="btn-tatico bg-red-950/90 text-red-500 active:scale-90 transition-transform">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>
+                    <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>
+                </svg>
+            </button>
+            
+            <!-- Ícone Caveira Scout -->
+            <button onclick="getGPS()" class="btn-tatico bg-blue-950/90 text-blue-500 active:scale-90 transition-transform">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 12a2 2 0 1 0 4 0 2 2 0 0 0-4 0Z"/>
+                    <path d="M12 18c-3.3 0-6-2.7-6-6V7a4 4 0 0 1 8 0v6c0 3.3-2.7 6-6 6Z"/>
+                    <path d="M3 13v-1a2 2 0 0 1 2-2h2"/>
+                    <path d="M21 13v-1a2 2 0 0 1-2-2h-2"/>
+                    <path d="M10 15h4"/>
+                </svg>
+            </button>
         </div>
     </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         lucide.createIcons();
-        let map, tg = L.layerGroup();
+        let map, tacticalGroup;
+        const apiKey = ""; // Sistema Gemini Core
+
+        const missions = [
+            { pos: [31.5, 34.4], t: "SECTOR GAZA", d: "Ataques aéreos reportados em áreas urbanas." },
+            { pos: [48.3, 38.0], t: "LINHA DONBAS", d: "Atividade intensa de drones e artilharia." },
+            { pos: [15.5, 42.5], t: "MAR VERMELHO", d: "Caças em patrulha de interceção." }
+        ];
+
+        const baseMap = {
+            "Brasil": [[-23.2, -45.8], [-15.8, -47.9]],
+            "Irão": [[35.6, 51.3], [27.1, 56.2]],
+            "Israel": [[31.7, 35.2], [32.0, 34.8]],
+            "EUA": [[38.8, -77.0], [34.0, -118.2]]
+        };
+
         window.onload = () => {
             map = L.map('map', { zoomControl: false, attributionControl: false, center: [20, 0], zoom: 2 });
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            tg.addTo(map);
-            setInterval(() => { document.getElementById('clock').innerText = new Date().toISOString().split('T')[1].split('.')[0] + " UTC"; }, 1000);
-            setTimeout(() => { map.invalidateSize(); log("MOBILE CMD", "Uplink Motorola ativo. Satélites sincronizados."); }, 1000);
-        };
-        function log(h, m) {
-            const t = document.getElementById('term');
-            document.getElementById('t-title').innerText = h;
-            document.getElementById('t-msg').innerText = "> " + m;
-            t.style.opacity = "1";
-            setTimeout(() => t.style.opacity = "0", 5000);
-        }
-        function runB2() {
-            tg.clearLayers();
-            map.flyTo([32.42, 53.68], 6);
-            log("MISSÃO", "Incursão B-2 detectada em espaço restrito.");
-            [[32.42, 53.68], [33.72, 51.72]].forEach(p => {
-                L.marker(p, { icon: L.divIcon({ className: 'strike-marker', iconSize: [16, 16] }) }).addTo(tg);
+            tacticalGroup = L.layerGroup().addTo(map);
+
+            setInterval(() => { 
+                document.getElementById('utc-clock').innerText = new Date().toISOString().split('T')[1].split('.')[0] + " UTC"; 
+            }, 1000);
+
+            map.on('click', async (e) => {
+                tacticalGroup.clearLayers();
+                const { lat, lng } = e.latlng;
+                L.circleMarker([lat, lng], { radius: 5, color: '#000', fillColor: '#000', fillOpacity: 1 }).addTo(tacticalGroup);
+                logToTerminal("GEO-LOCK", `COORD: ${lat.toFixed(2)}, ${lng.toFixed(2)}`);
+                updateIntel(lat, lng);
             });
+
+            setTimeout(() => { map.invalidateSize(); logToTerminal("REDE ATIVA", "Monitorização V5.1 online."); }, 1000);
+        };
+
+        function logToTerminal(h, m) {
+            const t = document.getElementById('cmd-terminal');
+            document.getElementById('term-title').innerText = h;
+            document.getElementById('term-content').innerText = "> " + m;
+            t.style.opacity = "1";
+            setTimeout(() => t.style.opacity = "0", 4000);
         }
+
+        function runGlobalStrike() {
+            tacticalGroup.clearLayers();
+            logToTerminal("AIR OPS", "A mapear conflitos de caças ativos...");
+            missions.forEach(m => {
+                L.marker(m.pos, { icon: L.divIcon({ className: 'strike-icon', iconSize: [10, 10] }) })
+                    .addTo(tacticalGroup)
+                    .bindPopup(`<b class='text-red-600'>${m.t}</b><br><span class='text-[9px]'>${m.d}</span>`);
+            });
+            map.flyTo([25, 45], 3);
+        }
+
+        async function updateIntel(lat, lng) {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+                const data = await res.json();
+                const country = data.address.country || "Águas Neutras";
+                
+                document.getElementById('news-country').innerText = "PAÍS: " + country.toUpperCase();
+                document.getElementById('news-overlay').classList.add('active');
+                
+                if(baseMap[country]) {
+                    baseMap[country].forEach(b => {
+                        L.marker(b, { icon: L.divIcon({ className: 'base-point', iconSize: [6, 6] }) }).addTo(tacticalGroup);
+                    });
+                }
+
+                const prompt = `Resuma em 3 frases curtas as tensões militares reais em ${country} no último ano. Seja direto e técnico.`;
+                const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                const gData = await gRes.json();
+                const text = gData.candidates?.[0]?.content?.parts?.[0]?.text || "Sem atividade hostil reportada.";
+
+                document.getElementById('news-body').innerHTML = `
+                    <p class="text-white border-l-2 border-red-600 pl-2 font-bold">RELATÓRIO DE INTELIGÊNCIA:</p>
+                    <p>${text}</p>
+                    <div class="pt-2 border-t border-gray-800 flex justify-between">
+                        <span class="text-green-500 font-bold text-[7px]">BASES DETETADAS: ${baseMap[country] ? baseMap[country].length : 0}</span>
+                        <span class="text-gray-600 text-[7px]">SCAN: COMPLETO</span>
+                    </div>
+                `;
+            } catch (e) {
+                document.getElementById('news-body').innerText = "Erro na ligação de satélite.";
+            }
+        }
+
+        function closeNews() { document.getElementById('news-overlay').classList.remove('active'); }
+
         function getGPS() {
+            logToTerminal("SCOUTING", "A localizar unidade Motorola...");
             navigator.geolocation.getCurrentPosition(p => {
                 const { latitude, longitude } = p.coords;
-                log("GPS LOCK", `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
-                tg.clearLayers();
-                L.marker([latitude, longitude]).addTo(tg);
                 map.flyTo([latitude, longitude], 15);
-            }, () => log("ERRO", "Ativa o GPS no teu Motorola."));
+                L.marker([latitude, longitude], { icon: L.divIcon({ html: '<i data-lucide="skull" class="text-blue-400 w-8 h-8"></i>', className: '' }) }).addTo(tacticalGroup);
+                setTimeout(() => lucide.createIcons(), 100);
+            }, () => logToTerminal("ERRO", "Ligue o GPS do Android."));
         }
     </script>
 </body>
