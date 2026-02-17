@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ops Tactical V5.4</title>
+    <title>Ops Tactical V5.5</title>
     
+    <!-- Scripts leves via CDN estável -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -16,67 +17,73 @@
             margin: 0; padding: 0; height: 100%; width: 100%; 
             background-color: #020408; color: #e5e7eb; 
             overflow: hidden; font-family: 'JetBrains Mono', monospace; 
+            touch-action: manipulation;
         }
         
-        #map { position: absolute; top: 60px; bottom: 0; left: 0; right: 0; z-index: 1; }
+        #map { position: absolute; top: 50px; bottom: 0; left: 0; right: 0; z-index: 1; }
         .leaflet-layer { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
         .leaflet-control-container { display: none; }
 
-        /* Painel Intel - Ajuste de Resolução Android */
+        /* Painel Intel Otimizado para Motorola - Evita cortes */
         #news-overlay {
             position: absolute; bottom: 0; left: 0; width: 100%;
-            background: rgba(0, 0, 0, 0.98); 
+            background: rgba(0, 0, 0, 0.95); 
             border-top: 2px solid #ef4444;
-            transform: translateY(100%); transition: transform 0.3s ease-out;
+            transform: translateY(100%); transition: transform 0.3s ease-in-out;
             z-index: 2000; 
-            padding: 15px 15px 30px 15px; 
-            max-height: 50vh; 
+            padding: 12px 15px 35px 15px; 
+            max-height: 45vh; 
             overflow-y: auto;
             box-sizing: border-box;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.8);
         }
         #news-overlay.active { transform: translateY(0); }
 
-        .strike-icon { 
-            width: 10px; height: 10px; background: #ff0000; border-radius: 50%;
-            box-shadow: 0 0 10px #ff0000; animation: pulse 1s infinite;
-        }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.5); } 100% { transform: scale(1); } }
+        .intel-content { font-size: 13px; line-height: 1.5; color: #d1d5db; }
 
         .btn-tatico {
-            width: 52px; height: 52px; display: flex; align-items: center; justify-content: center;
-            border-radius: 12px; background: rgba(15, 23, 42, 0.9); border: 1px solid rgba(255,255,255,0.1);
+            width: 50px; height: 50px; display: flex; align-items: center; justify-content: center;
+            border-radius: 10px; background: #0f172a; border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
+        .btn-tatico:active { background: #ef4444; color: #fff; transform: scale(0.95); }
     </style>
 </head>
 <body class="flex flex-col h-screen">
 
-    <header class="h-[60px] bg-black border-b border-gray-800 flex items-center justify-between px-4 z-20">
+    <!-- Header Mais fino para sobrar tela -->
+    <header class="h-[50px] bg-black border-b border-gray-800 flex items-center justify-between px-4 z-20">
         <div class="flex items-center gap-2">
-            <i data-lucide="crosshair" class="text-red-600 w-5 h-5"></i>
-            <h1 class="font-black text-[10px] text-white uppercase italic">Ops <span class="text-red-600">Tactical</span> V5.4</h1>
+            <i data-lucide="shield-alert" class="text-red-600 w-4 h-4"></i>
+            <h1 class="font-bold text-[10px] text-white tracking-widest uppercase">TACTICAL <span class="text-red-600">INTEL</span></h1>
         </div>
-        <div id="utc-clock" class="text-[10px] text-white font-bold">--:--:-- UTC</div>
+        <div id="utc-clock" class="text-[9px] text-gray-400 font-mono">00:00:00 UTC</div>
     </header>
 
     <div class="relative flex-1">
         <div id="map"></div>
 
+        <!-- Painel de Informação -->
         <div id="news-overlay">
-            <div class="flex justify-between items-center mb-4">
-                <h3 id="news-country" class="text-white font-bold uppercase text-[12px]">INTEL</h3>
-                <button onclick="closeNews()" class="text-red-600 text-[10px] font-bold">FECHAR</button>
+            <div class="flex justify-between items-center mb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 bg-red-600 rounded-full animate-pulse"></span>
+                    <h3 id="news-country" class="text-white font-bold uppercase text-[11px]">A AGUARDAR DADOS</h3>
+                </div>
+                <button onclick="closeNews()" class="bg-gray-800 text-[9px] px-3 py-1 rounded text-gray-300">FECHAR</button>
             </div>
-            <div id="news-body" class="text-[12px] text-gray-300 leading-relaxed space-y-3">
-                <!-- Informação aparecerá aqui -->
+            <div id="news-body" class="intel-content">
+                Toque no mapa para iniciar varredura de inteligência...
             </div>
         </div>
 
-        <div class="absolute bottom-8 right-4 flex flex-col gap-4 z-[1000]">
-            <button onclick="runStrikes()" class="btn-tatico text-red-500">
-                <i data-lucide="plane"></i>
+        <!-- Botões reposicionados -->
+        <div class="absolute bottom-10 right-4 flex flex-col gap-3 z-[1000]">
+            <button onclick="runStrikes()" class="btn-tatico" title="Ataque">
+                <i data-lucide="target"></i>
             </button>
-            <button onclick="getGPS()" class="btn-tatico text-blue-500">
-                <i data-lucide="skull"></i>
+            <button onclick="getGPS()" class="btn-tatico" style="color: #3b82f6; border-color: #3b82f633;" title="GPS">
+                <i data-lucide="navigation"></i>
             </button>
         </div>
     </div>
@@ -85,7 +92,7 @@
     <script>
         lucide.createIcons();
         let map, tactical;
-        const apiKey = ""; 
+        const apiKey = ""; // Sua chave Gemini
 
         window.onload = () => {
             map = L.map('map', { zoomControl: false, attributionControl: false, center: [20, 0], zoom: 2 });
@@ -99,33 +106,41 @@
             map.on('click', async (e) => {
                 tactical.clearLayers();
                 const { lat, lng } = e.latlng;
-                L.circleMarker([lat, lng], { radius: 4, color: '#000', fillColor: '#000', fillOpacity: 1 }).addTo(tactical);
+                L.circleMarker([lat, lng], { radius: 5, color: '#ef4444', weight: 2, fillOpacity: 0.2 }).addTo(tactical);
                 updateIntel(lat, lng);
             });
-            setTimeout(() => { map.invalidateSize(); }, 500);
+            
+            // Corrige o tamanho do mapa após carregar
+            setTimeout(() => { map.invalidateSize(); }, 600);
         };
 
         async function updateIntel(lat, lng) {
+            document.getElementById('news-body').innerHTML = "<span class='animate-pulse'>A contactar satélite...</span>";
+            document.getElementById('news-overlay').classList.add('active');
+
             try {
                 const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
                 const data = await res.json();
-                const country = data.address.country || "Oceano";
+                const country = data.address.country || "Águas Internacionais";
                 
-                document.getElementById('news-country').innerText = country.toUpperCase();
-                document.getElementById('news-overlay').classList.add('active');
+                document.getElementById('news-country').innerText = "ALVO: " + country.toUpperCase();
                 
-                const prompt = `Cite 2 conflitos ou tensões militares em ${country} no último ano. Seja direto e curto.`;
+                const prompt = `Relatório tático ultra-curto sobre tensões militares ou segurança em ${country} no ano de 2024/2025. Use tópicos.`;
                 const gRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
                 });
                 const gData = await gRes.json();
-                const text = gData.candidates?.[0]?.content?.parts?.[0]?.text || "Vigilância passiva.";
+                const text = gData.candidates?.[0]?.content?.parts?.[0]?.text || "Sem dados hostis.";
 
-                document.getElementById('news-body').innerHTML = `<p class="border-l-2 border-red-600 pl-2">${text}</p>`;
+                document.getElementById('news-body').innerHTML = `
+                    <div style="border-left: 2px solid #ef4444; padding-left: 10px;">
+                        ${text.replace(/\n/g, '<br>')}
+                    </div>
+                `;
             } catch (e) {
-                document.getElementById('news-body').innerText = "Erro no satélite.";
+                document.getElementById('news-body').innerText = "Erro de conexão satélite.";
             }
         }
 
@@ -133,8 +148,8 @@
 
         function runStrikes() {
             tactical.clearLayers();
-            [[31.5, 34.4], [48.3, 38.0], [15.5, 42.5]].forEach(p => {
-                L.marker(p, { icon: L.divIcon({ className: 'strike-icon', iconSize: [10, 10] }) }).addTo(tactical);
+            [[31.5, 34.4], [48.3, 38.0], [15.5, 42.5], [35.6, 51.3]].forEach(p => {
+                L.circleMarker(p, { radius: 8, color: '#ff0000', weight: 1, fillOpacity: 0.5 }).addTo(tactical);
             });
             map.flyTo([30, 40], 3);
         }
@@ -143,8 +158,8 @@
             navigator.geolocation.getCurrentPosition(p => {
                 const { latitude, longitude } = p.coords;
                 map.flyTo([latitude, longitude], 15);
-                L.marker([latitude, longitude], { icon: L.divIcon({ html: '<i data-lucide="skull" class="text-blue-500 w-8 h-8"></i>', className: '' }) }).addTo(tactical);
-                setTimeout(() => lucide.createIcons(), 100);
+                L.marker([latitude, longitude]).addTo(tactical);
+                lucide.createIcons();
             });
         }
     </script>
